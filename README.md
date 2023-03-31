@@ -29,6 +29,8 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+![App Demo](examples/app_demo.gif)
+
 ---
 
 ## License
