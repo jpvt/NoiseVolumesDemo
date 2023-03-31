@@ -45,7 +45,7 @@ def simple_option_page():
             "Noise Type", options=["Simplex", "Perlin"], index=0, help="Select between Simplex and Perlin noise. Default = Simplex"
         )
         volume_size = st.slider(
-            "Volume Size", min_value=50, max_value=1000, value=100, step=1, help="Size of the block, currently supports only cubes. Default = 100"
+            "Volume Size", min_value=50, max_value=500, value=100, step=1, help="Size of the block, currently supports only cubes. Default = 100"
         )
         num_volumes = st.slider(
             "Number of Volumes", min_value=1, max_value=20, value=6, step=1, help="The number of volumes combined to generate the result. Default = 6"
