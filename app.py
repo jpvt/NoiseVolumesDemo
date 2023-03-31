@@ -50,7 +50,7 @@ def simple_option_page():
         num_volumes = st.slider(
             "Number of Volumes", min_value=1, max_value=20, value=6, step=1, help="The number of volumes combined to generate the result. Default = 6"
         )
-        
+
         lacunarity = st.slider(
             "Lacunarity", min_value=0.01, max_value=5.0, value=1.5, step=0.01, help="The frequency factor between two octaves ('step' from one octave to the other). Default = 1.5"
         )
@@ -110,7 +110,7 @@ def simple_option_page():
     if st.session_state.noise_volume is not None:
         max_slices = st.session_state.noise_volume.shape[2] - 1
         with right_column:
-            slice_index = st.slider("Slice", min_value=0, max_value=max_slices, value=0, step=1)
+            slice_index = st.slider("Slice", min_value=0, max_value=max_slices, value=max_slices//2, step=1)
             fig, ax = plt.subplots()
             ax.imshow(st.session_state.noise_volume[:, :, slice_index], cmap="gray", aspect='equal')
             ax.set_title(f"Slice {slice_index + 1}")
