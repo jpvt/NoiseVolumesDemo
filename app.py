@@ -1,7 +1,6 @@
 import streamlit as st
 import pyfastnoisesimd as fns
 import numpy as np
-import time
 from helpers.noise_functions import generate_volume, rescale
 import matplotlib.pyplot as plt
 import tifffile
