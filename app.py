@@ -1,7 +1,7 @@
 import streamlit as st
 import pyfastnoisesimd as fns
 import numpy as np
-from helpers.noise_functions import generate_volume, rescale
+from helpers.noise_functions import generate_volume, rescale, calculate_frequencies
 import matplotlib.pyplot as plt
 import tifffile
 import io
@@ -50,15 +50,19 @@ def simple_option_page():
         num_volumes = st.slider(
             "Number of Volumes", min_value=1, max_value=20, value=6, step=1, help="The number of volumes combined to generate the result. Default = 6"
         )
-        octaves_threshold = st.slider(
-            "Octaves Threshold", min_value=0, max_value=20, value=0, step=1, help="The number of octaves you wish to skip. Default = 0"
-        )
+        
         lacunarity = st.slider(
             "Lacunarity", min_value=0.01, max_value=5.0, value=1.5, step=0.01, help="The frequency factor between two octaves ('step' from one octave to the other). Default = 1.5"
         )
         persistence = st.slider(
             "Persistence", min_value=0.1, max_value=1.0, value=0.7, step=0.01, help="The scaling factor between two octaves ('weight' of an octave). Default = 0.7"
         )
+        
+        max_octaves =  len(calculate_frequencies(volume_size, lacunarity))
+        octaves_threshold = st.slider(
+            "Octaves Thresholds", min_value=1, max_value=max_octaves, value=(1, max_octaves), step=1, help=f"Interval of octaves you want to compose your volume. Default = (0, {max_octaves})"
+        )
+        
         advanced_options_button = st.checkbox("Show advanced options?")
         if advanced_options_button:
             threads = st.number_input(
@@ -99,7 +103,7 @@ def simple_option_page():
             st.download_button(
                 label="Download Volume as TIFF",
                 data=tiff_buffer,
-                file_name="noise_volume.tiff",
+                file_name=f"{noise_type}_nvols-{num_volumes}_octhd-{octaves_threshold}_lac-{lacunarity}_per-{persistence}.tiff",
                 mime="image/tiff",
             )
 

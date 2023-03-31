@@ -66,7 +66,7 @@ def generate_volume(
         shape: list = [100,100,100], 
         lacunarity: float = 1.5, 
         persistence: float = 0.7,
-        octave_threshold: int = 2,  
+        octave_threshold: tuple = (0,7),  
         noise_type: int = fns.NoiseType.Simplex,
         threads: int = 8,
         seed: int = None,
@@ -79,7 +79,7 @@ def generate_volume(
     - shape (list): The shape of the output volume (e.g. [100, 100, 100] for a 100x100x100 volume).
     - lacunarity (float): The frequency factor between two octaves ("step" from one octave to the other).
     - persistence (float): The scaling factor between two octaves ("weight" of an octave).
-    - octave_threshold (int): The number of octaves you wish to skip.
+    - octave_threshold (tuple): Interval of octaves you want to compose your volume.
     - noise_type (int): The type of noise to generate (e.g., Simplex or Perlin).
     - threads (int): The number of threads used for generating the noise.
     - seed (int, optional): The seed for deterministic results.
@@ -107,7 +107,7 @@ def generate_volume(
                 seed=seed
             )
 
-            if jj >= octave_threshold:
+            if octave_threshold[0] <= jj <= octave_threshold[1]:
                 vol += (persistence[0] ** count) * noise
                 count -= 1
 
