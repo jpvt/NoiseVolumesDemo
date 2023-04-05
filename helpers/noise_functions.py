@@ -4,6 +4,17 @@ import numpy as np
 def rescale(array, new_min, new_max) -> np.ndarray:
     return ((array-array.min()) * ((new_max-new_min)/(array.max()-array.min()))) + new_min
 
+def pad_mask_to_match_shape(mask, target_shape):
+    pad_width = []
+    
+    for m_dim, t_dim in zip(mask.shape, target_shape):
+        padding_needed = max(t_dim - m_dim, 0)
+        pad_width.append((0, padding_needed))
+    
+    padded_mask = np.pad(mask, pad_width=pad_width)
+    
+    return np.uint8(padded_mask)
+
 def perturb(volume: np.ndarray) -> np.single:
     """
     Function to perturb distribution of a volume
@@ -114,3 +125,59 @@ def generate_volume(
         volume += perturb(vol)
 
     return volume
+
+def generate_tissues(
+        volumes: int = 7, 
+        shape: list = [100,100,100], 
+        lacunarity: float = 1.5, 
+        persistence: float = 0.7,
+        octave_thresholds: dict = {0: (0,7)},  
+        noise_type: int = fns.NoiseType.Simplex,
+        threads: int = 8,
+        seed: int = None,
+) -> dict:
+    """
+    Generate a 3D noise volume with specified parameters.
+
+    Parameters:
+    - volumes (int): The number of volumes combined to generate the result.
+    - shape (list): The shape of the output volume (e.g. [100, 100, 100] for a 100x100x100 volume).
+    - lacunarity (float): The frequency factor between two octaves ("step" from one octave to the other).
+    - persistence (float): The scaling factor between two octaves ("weight" of an octave).
+    - octave_thresholds (dict): Intervals of octaves you want to compose your tissues.
+    - noise_type (int): The type of noise to generate (e.g., Simplex or Perlin).
+    - threads (int): The number of threads used for generating the noise.
+    - seed (int, optional): The seed for deterministic results.
+
+    Returns:
+    - tissues (ndarray): A 3D noise volume as a NumPy array.
+    """
+    if np.size(persistence) == 1:
+        persistence = {label: persistence for label in octave_thresholds.keys()}
+        
+    frequencies =  calculate_frequencies(shape, lacunarity)
+    tissues = {label: np.zeros(shape, dtype=np.single) for label in octave_thresholds.keys()}
+    for _ in range(volumes):
+        volumes = {label: np.zeros(shape, dtype=np.single) for label in octave_thresholds.keys()}
+        counts = {label: len(frequencies) for label in octave_thresholds.keys()}
+        
+        for jj in range(1,len(frequencies)+1):
+
+            noise = generate_noise(
+                frequency=frequencies[jj],
+                noise_type=noise_type,
+                shape=shape,
+                threads=threads,
+                seed=seed
+            )
+
+            for label, octave_threshold in octave_thresholds.items():
+
+                if octave_threshold[0] <= jj <= octave_threshold[1]:
+                    volumes[label] += (persistence[label] ** counts[label]) * noise
+                    counts[label] -= 1
+        
+        for label in octave_thresholds.keys():
+            tissues[label] += perturb(volumes[label])
+
+    return tissues
