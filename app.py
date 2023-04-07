@@ -229,6 +229,17 @@ def advanced_page():
                     ax.axis("off")
                     st.pyplot(fig)
                     plt.close(fig)
+
+                    if st.session_state.noise_tissues is not None:
+                        tiff_buffer = io.BytesIO()
+                        tifffile.imwrite(tiff_buffer, st.session_state.noise_tissues[selected_label])
+                        tiff_buffer.seek(0)
+                        st.download_button(
+                            label="Download Volume as TIFF",
+                            data=tiff_buffer,
+                            file_name=f"tissue_{selected_label}_{noise_type}_nvols-{num_volumes}_lac-{lacunarity}_per-{persistence}.tiff",
+                            mime="image/tiff",
+                        )
                 
                 elif viz_mode == "Result":
                     result_volume = np.zeros_like(template_mask,dtype=np.uint8)
@@ -250,6 +261,17 @@ def advanced_page():
                     #plt.tight_layout()
                     st.pyplot(fig)
                     plt.close(fig)
+
+                    if st.session_state.result_volume is not None:
+                        tiff_buffer = io.BytesIO()
+                        tifffile.imwrite(tiff_buffer, st.session_state.result_volume)
+                        tiff_buffer.seek(0)
+                        st.download_button(
+                            label="Download Volume as TIFF",
+                            data=tiff_buffer,
+                            file_name=f"result_{noise_type}_nvols-{num_volumes}_lac-{lacunarity}_per-{persistence}.tiff",
+                            mime="image/tiff",
+                        )
 
 
                 
