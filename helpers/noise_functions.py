@@ -15,6 +15,18 @@ def pad_mask_to_match_shape(mask, target_shape):
     
     return np.uint8(padded_mask)
 
+def generate_threshold_matrix(layers, volumes, min_values, max_values):
+    assert len(min_values) == 2, "min_values must have 2 elements."
+    assert len(max_values) == 2, "max_values must have 2 elements."
+
+    min_gradient = np.linspace(min_values[0], min_values[1], layers).reshape(-1, 1)
+    max_gradient = np.linspace(max_values[0], max_values[1], layers).reshape(-1, 1)
+    
+    column_scaling = np.linspace(0, 1, volumes)
+    threshold_matrix = min_gradient + (max_gradient - min_gradient) * column_scaling
+
+    return threshold_matrix
+
 def perturb(volume: np.ndarray) -> np.single:
     """
     Function to perturb distribution of a volume
@@ -71,6 +83,85 @@ def generate_noise(
     noisegen.frequency = 1/frequency
     noisegen.perturb.perturbType = fns.PerturbType.NoPerturb
     return np.single(noisegen.genAsGrid(shape))
+
+def combine_base(base, thresholds, shape):
+    layers, volume_thresholds = thresholds.shape
+    finished = np.zeros(shape, dtype=np.uint8)
+
+    for layer in range(layers):
+        combined = np.zeros(shape, dtype=np.uint8)
+        for volume_threshold in range(volume_thresholds):
+            combined += np.where(base[volume_threshold] > thresholds[layer, volume_threshold], 1, 0).astype(np.uint8)
+
+        finished += combined
+
+    return finished
+
+def generate_thresholded_volume(
+        volumes: int = 7, 
+        shape: list = [100,100,100], 
+        lacunarity: float = 1.5, 
+        persistence: float = 0.7,
+        octave_threshold: tuple = (0,7),  
+        noise_type: int = fns.NoiseType.Simplex,
+        threads: int = 8,
+        seed: int = None,
+        min_values = [0.94, 0.6],
+        max_values = [0.99, 0.98],
+        layers = 63,
+) -> np.ndarray:
+    """
+    Generate a 3D noise volume with specified parameters.
+
+    Parameters:
+    - volumes (int): The number of volumes combined to generate the result.
+    - shape (list): The shape of the output volume (e.g. [100, 100, 100] for a 100x100x100 volume).
+    - lacunarity (float): The frequency factor between two octaves ("step" from one octave to the other).
+    - persistence (float): The scaling factor between two octaves ("weight" of an octave).
+    - octave_threshold (tuple): Interval of octaves you want to compose your volume.
+    - noise_type (int): The type of noise to generate (e.g., Simplex or Perlin).
+    - threads (int): The number of threads used for generating the noise.
+    - seed (int, optional): The seed for deterministic results.
+
+    Returns:
+    - volume (ndarray): A 3D noise volume as a NumPy array.
+    """
+    if np.size(persistence) == 1:
+        persistence = np.array([persistence, persistence])
+    
+    frequencies =  calculate_frequencies(shape, lacunarity)
+    #volume = np.zeros(shape, dtype=np.single)
+    generated_volumes = []
+    
+    for _ in range(volumes):
+        vol = np.zeros(shape, dtype=np.single)
+        count = len(frequencies)
+        
+        for jj in range(1,len(frequencies)+1):
+
+            noise = generate_noise(
+                frequency=frequencies[jj],
+                noise_type=noise_type,
+                shape=shape,
+                threads=threads,
+                seed=seed
+            )
+
+            if octave_threshold[0] <= jj <= octave_threshold[1]:
+                vol += (persistence[0] ** count) * noise
+                count -= 1
+
+        generated_volumes.append(perturb(vol))
+
+    threshold_matrix = generate_threshold_matrix(
+        layers=layers,
+        volumes=volumes,
+        min_values=min_values,
+        max_values=max_values
+    )
+    volume = combine_base(generated_volumes, threshold_matrix, shape)
+
+    return volume
 
 def generate_volume(
         volumes: int = 7, 

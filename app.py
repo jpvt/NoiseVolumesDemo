@@ -1,7 +1,7 @@
 import streamlit as st
 import pyfastnoisesimd as fns
 import numpy as np
-from helpers.noise_functions import generate_volume, rescale, calculate_frequencies, generate_tissues, pad_mask_to_match_shape
+from helpers.noise_functions import generate_volume, rescale, calculate_frequencies, generate_tissues, pad_mask_to_match_shape, generate_thresholded_volume
 import matplotlib.pyplot as plt
 import tifffile
 import io
@@ -68,6 +68,21 @@ def simple_option_page():
             threads = st.number_input(
                 "Threads", min_value=1, value=4, step=1, help="Number of threads used to generate the noise. Default = 4"
             )
+
+            thresholds_option = st.checkbox("Volume Threshold")
+            if thresholds_option:
+                min_values_threshold = st.slider(
+                    "Thresholds Minimum Values ", min_value=0.0, max_value=1.0, value=(0.94, 0.6), step=0.01, 
+                    help=f"Interval of minimum values of the gradient that will threshold your volume. Default = (0.94, 0.6)"
+                )
+                max_values_threshold  = st.slider(
+                    "Thresholds Minimum Values ", min_value=0.0, max_value=1.0, value=(0.99, 0.96), step=0.01, 
+                    help=f"Interval of maximum values of the gradient that will threshold your volume. Default = (0.94, 0.6)"
+                )
+                layers  = st.slider(
+                    "Gradient Matrix Layers", min_value=1, max_value=63, value=63//2, step=1, help=f"Number of layers between the intervals (Number of rows of gradient matrix)"
+                )
+
             
             seed_button = st.checkbox("Set seed")
             if seed_button:
@@ -82,16 +97,31 @@ def simple_option_page():
             seed = None
 
         if st.button("Generate 3D Noise"):
-            noise_volume = generate_volume(
-                volumes=num_volumes,
-                noise_type=fns.NoiseType.Simplex if noise_type == "Simplex" else fns.NoiseType.Perlin,
-                shape=[volume_size, volume_size, volume_size],
-                octave_threshold=octaves_threshold,
-                lacunarity=lacunarity,
-                persistence=persistence,
-                threads=threads,
-                seed=seed,
-            )
+            if thresholds_option:
+                noise_volume = generate_thresholded_volume(
+                    volumes=num_volumes,
+                    noise_type=fns.NoiseType.Simplex if noise_type == "Simplex" else fns.NoiseType.Perlin,
+                    shape=[volume_size, volume_size, volume_size],
+                    octave_threshold=octaves_threshold,
+                    lacunarity=lacunarity,
+                    persistence=persistence,
+                    threads=threads,
+                    seed=seed,
+                    min_values = min_values_threshold,
+                    max_values = max_values_threshold,
+                    layers = layers,
+                )
+            else:
+                noise_volume = generate_volume(
+                    volumes=num_volumes,
+                    noise_type=fns.NoiseType.Simplex if noise_type == "Simplex" else fns.NoiseType.Perlin,
+                    shape=[volume_size, volume_size, volume_size],
+                    octave_threshold=octaves_threshold,
+                    lacunarity=lacunarity,
+                    persistence=persistence,
+                    threads=threads,
+                    seed=seed,
+                )
             st.session_state.noise_volume = np.uint8(rescale(noise_volume, 0, 255))
         elif "noise_volume" not in st.session_state:
             st.session_state.noise_volume = None
@@ -110,14 +140,26 @@ def simple_option_page():
     if st.session_state.noise_volume is not None:
         max_slices = st.session_state.noise_volume.shape[2] - 1
         with right_column:
-            slice_index = st.slider("Slice", min_value=0, max_value=max_slices, value=max_slices//2, step=1)
-            fig, ax = plt.subplots()
-            ax.imshow(st.session_state.noise_volume[:, :, slice_index], cmap="gray", aspect='equal')
-            ax.set_title(f"Slice {slice_index + 1}")
-            ax.axis("off")
-            #plt.tight_layout()
-            st.pyplot(fig)
-            plt.close(fig)
+            z_project = st.checkbox("Show Z-Project")
+
+            if z_project:
+                fig, ax = plt.subplots()
+                ax.set_title(f"Z-Project")
+                image_to_show = np.sum(st.session_state.noise_volume, axis=2)
+                ax.imshow(image_to_show, cmap="gray", aspect='equal')
+                ax.axis("off")
+                st.pyplot(fig)
+                plt.close(fig)
+
+            else:
+                slice_index = st.slider("Slice", min_value=0, max_value=max_slices, value=max_slices//2, step=1)
+                fig, ax = plt.subplots()
+                ax.imshow(st.session_state.noise_volume[:, :, slice_index], cmap="gray", aspect='equal')
+                ax.set_title(f"Slice {slice_index + 1}")
+                ax.axis("off")
+                #plt.tight_layout()
+                st.pyplot(fig)
+                plt.close(fig)
 
 def advanced_page():
     st.title("Advanced 3D Noise Generator Dashboard")
