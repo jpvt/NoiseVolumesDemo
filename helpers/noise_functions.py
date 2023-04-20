@@ -106,9 +106,9 @@ def generate_thresholded_volume(
         noise_type: int = fns.NoiseType.Simplex,
         threads: int = 8,
         seed: int = None,
-        min_values = [0.94, 0.6],
-        max_values = [0.99, 0.98],
-        layers = 63,
+        min_values: tuple = (0.94, 0.6),
+        max_values: tuple = (0.99, 0.98),
+        layers: int = 63,
 ) -> np.ndarray:
     """
     Generate a 3D noise volume with specified parameters.
@@ -218,7 +218,7 @@ def generate_volume(
     return volume
 
 def generate_tissues(
-        volumes: int = 7, 
+        n_volumes: int = 7, 
         shape: list = [100,100,100], 
         lacunarity: float = 1.5, 
         persistence: float = 0.7,
@@ -248,7 +248,7 @@ def generate_tissues(
         
     frequencies =  calculate_frequencies(shape, lacunarity)
     tissues = {label: np.zeros(shape, dtype=np.single) for label in octave_thresholds.keys()}
-    for _ in range(volumes):
+    for _ in range(n_volumes):
         volumes = {label: np.zeros(shape, dtype=np.single) for label in octave_thresholds.keys()}
         counts = {label: len(frequencies) for label in octave_thresholds.keys()}
         
@@ -270,5 +270,73 @@ def generate_tissues(
         
         for label in octave_thresholds.keys():
             tissues[label] += perturb(volumes[label])
+
+    return tissues
+
+def generate_thresholded_tissues(
+        n_volumes: int = 7, 
+        shape: list = [100,100,100], 
+        lacunarity: float = 1.5, 
+        persistence: float = 0.7,
+        octave_thresholds: dict = {0: (0,7)},  
+        noise_type: int = fns.NoiseType.Simplex,
+        threads: int = 8,
+        seed: int = None,
+        min_values: dict = {0: (0.94, 0.6)},
+        max_values: dict = {0: (0.99, 0.98)},
+        layers: dict = {0: 63},
+) -> dict:
+    """
+    Generate a 3D noise volume with specified parameters.
+
+    Parameters:
+    - volumes (int): The number of volumes combined to generate the result.
+    - shape (list): The shape of the output volume (e.g. [100, 100, 100] for a 100x100x100 volume).
+    - lacunarity (float): The frequency factor between two octaves ("step" from one octave to the other).
+    - persistence (float): The scaling factor between two octaves ("weight" of an octave).
+    - octave_thresholds (dict): Intervals of octaves you want to compose your tissues.
+    - noise_type (int): The type of noise to generate (e.g., Simplex or Perlin).
+    - threads (int): The number of threads used for generating the noise.
+    - seed (int, optional): The seed for deterministic results.
+
+    Returns:
+    - tissues (ndarray): A 3D noise volume as a NumPy array.
+    """
+    if np.size(persistence) == 1:
+        persistence = {label: persistence for label in octave_thresholds.keys()}
+        
+    frequencies =  calculate_frequencies(shape, lacunarity)
+    tissues = {label: [] for label in octave_thresholds.keys()}
+    for _ in range(n_volumes):
+        volumes = {label: np.zeros(shape, dtype=np.single) for label in octave_thresholds.keys()}
+        counts = {label: len(frequencies) for label in octave_thresholds.keys()}
+        
+        for jj in range(1,len(frequencies)+1):
+
+            noise = generate_noise(
+                frequency=frequencies[jj],
+                noise_type=noise_type,
+                shape=shape,
+                threads=threads,
+                seed=seed
+            )
+
+            for label, octave_threshold in octave_thresholds.items():
+
+                if octave_threshold[0] <= jj <= octave_threshold[1]:
+                    volumes[label] += (persistence[label] ** counts[label]) * noise
+                    counts[label] -= 1
+        
+        for label in octave_thresholds.keys():
+            tissues[label].append(perturb(volumes[label]))
+    
+    for label in octave_thresholds.keys():
+        threshold_matrix = generate_threshold_matrix(
+            layers=layers[label],
+            volumes=n_volumes,
+            min_values=min_values[label],
+            max_values=max_values[label]
+        )
+        tissues[label] = combine_base(tissues[label], threshold_matrix, shape)
 
     return tissues

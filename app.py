@@ -1,7 +1,8 @@
 import streamlit as st
 import pyfastnoisesimd as fns
 import numpy as np
-from helpers.noise_functions import generate_volume, rescale, calculate_frequencies, generate_tissues, pad_mask_to_match_shape, generate_thresholded_volume
+from helpers.noise_functions import generate_volume, rescale, calculate_frequencies
+from helpers.noise_functions import generate_tissues, pad_mask_to_match_shape, generate_thresholded_volume, generate_thresholded_tissues
 import matplotlib.pyplot as plt
 import tifffile
 import io
@@ -195,6 +196,13 @@ def advanced_page():
             mask_labels = np.unique(template_mask)
             max_octaves =  len(calculate_frequencies(volume_size, lacunarity))
             octaves_thresholds = {}
+
+            gradient_matrix_thresholds = st.checkbox("Set Threshold Gradient Matrix")
+            if gradient_matrix_thresholds:
+                min_values_thresholds = {}
+                max_values_thresholds = {}
+                layers_per_label = {}
+                
             for label in mask_labels:
                 st.markdown(f"**Label {label}**")
 
@@ -202,6 +210,26 @@ def advanced_page():
                     "Octaves Thresholds", min_value=1, max_value=max_octaves, value=(1, max_octaves), step=1, help=f"Interval of octaves you want to compose your volume. Default = (0, {max_octaves})"
                 , key=label)
                 octaves_thresholds[label] = octaves_threshold
+
+                if gradient_matrix_thresholds:
+                    min_values_threshold = st.slider(
+                    "Thresholds Minimum Values ", min_value=0.0, max_value=1.0, value=(0.94, 0.6), step=0.01, 
+                    help=f"Interval of minimum values of the gradient that will threshold your volume. Default = (0.94, 0.6)", key=f"minv_{label}"
+                    )
+                    min_values_thresholds[label] = min_values_threshold
+
+                    max_values_threshold  = st.slider(
+                        "Thresholds Minimum Values ", min_value=0.0, max_value=1.0, value=(0.99, 0.96), step=0.01, 
+                        help=f"Interval of maximum values of the gradient that will threshold your volume. Default = (0.94, 0.6)", key=f"maxv_{label}"
+                    )
+                    max_values_thresholds[label] = max_values_threshold
+
+                    layers  = st.slider(
+                        "Gradient Matrix Layers", min_value=1, max_value=63, value=63//2, step=1, 
+                        help=f"Number of layers between the intervals (Number of rows of gradient matrix)", key=f"layers_{label}"
+                    )
+                    layers_per_label[label] = layers
+
 
             advanced_options_button = st.checkbox("Show advanced options?")
             if advanced_options_button:
@@ -224,16 +252,32 @@ def advanced_page():
             if st.button("Generate Noise for Labels"):
                 # ... (Generate noise for each label using the mapped parameters) ...
                 # noise_volumes = generate_noise_for_labels(...)
-                noise_tissues = generate_tissues(
-                    volumes=num_volumes,
-                    noise_type=fns.NoiseType.Simplex if noise_type == "Simplex" else fns.NoiseType.Perlin,
-                    shape=[volume_size, volume_size, volume_size],
-                    octave_thresholds=octaves_thresholds,
-                    lacunarity=lacunarity,
-                    persistence=persistence,
-                    threads=threads,
-                    seed=seed,
-                )
+
+                if gradient_matrix_thresholds:
+                    noise_tissues = generate_thresholded_tissues(
+                        n_volumes=num_volumes,
+                        noise_type=fns.NoiseType.Simplex if noise_type == "Simplex" else fns.NoiseType.Perlin,
+                        shape=[volume_size, volume_size, volume_size],
+                        octave_thresholds=octaves_thresholds,
+                        lacunarity=lacunarity,
+                        persistence=persistence,
+                        threads=threads,
+                        seed=seed,
+                        min_values= min_values_thresholds,
+                        max_values= max_values_thresholds,
+                        layers= layers_per_label,
+                    )
+                else:
+                    noise_tissues = generate_tissues(
+                        n_volumes=num_volumes,
+                        noise_type=fns.NoiseType.Simplex if noise_type == "Simplex" else fns.NoiseType.Perlin,
+                        shape=[volume_size, volume_size, volume_size],
+                        octave_thresholds=octaves_thresholds,
+                        lacunarity=lacunarity,
+                        persistence=persistence,
+                        threads=threads,
+                        seed=seed,
+                    )
 
                 for label in mask_labels:
                     noise_tissues[label] = np.uint8(rescale(noise_tissues[label] , 0, 255))
@@ -294,26 +338,36 @@ def advanced_page():
                     
                     st.session_state.result_volume = result_volume
 
-                    max_slices = st.session_state.result_volume.shape[2] - 1
-                    slice_index = st.slider("Slice", min_value=0, max_value=max_slices, value=max_slices//2, step=1)
-                    fig, ax = plt.subplots()
-                    ax.imshow(st.session_state.result_volume[:, :, slice_index], cmap="gray", aspect='equal')
-                    ax.set_title(f"Slice {slice_index + 1}")
-                    ax.axis("off")
-                    #plt.tight_layout()
-                    st.pyplot(fig)
-                    plt.close(fig)
+                    z_project_result = st.checkbox("Z-Project")
+                    if z_project_result:
+                        fig, ax = plt.subplots()
+                        ax.imshow(np.sum(st.session_state.result_volume, axis=2), cmap="gray", aspect='equal')
+                        ax.set_title(f"Z-Project")
+                        ax.axis("off")
+                        #plt.tight_layout()
+                        st.pyplot(fig)
+                        plt.close(fig)
+                    else:
+                        max_slices = st.session_state.result_volume.shape[2] - 1
+                        slice_index = st.slider("Slice", min_value=0, max_value=max_slices, value=max_slices//2, step=1)
+                        fig, ax = plt.subplots()
+                        ax.imshow(st.session_state.result_volume[:, :, slice_index], cmap="gray", aspect='equal')
+                        ax.set_title(f"Slice {slice_index + 1}")
+                        ax.axis("off")
+                        #plt.tight_layout()
+                        st.pyplot(fig)
+                        plt.close(fig)
 
-                    if st.session_state.result_volume is not None:
-                        tiff_buffer = io.BytesIO()
-                        tifffile.imwrite(tiff_buffer, st.session_state.result_volume)
-                        tiff_buffer.seek(0)
-                        st.download_button(
-                            label="Download Volume as TIFF",
-                            data=tiff_buffer,
-                            file_name=f"result_{noise_type}_nvols-{num_volumes}_lac-{lacunarity}_per-{persistence}.tiff",
-                            mime="image/tiff",
-                        )
+                        if st.session_state.result_volume is not None:
+                            tiff_buffer = io.BytesIO()
+                            tifffile.imwrite(tiff_buffer, st.session_state.result_volume)
+                            tiff_buffer.seek(0)
+                            st.download_button(
+                                label="Download Volume as TIFF",
+                                data=tiff_buffer,
+                                file_name=f"result_{noise_type}_nvols-{num_volumes}_lac-{lacunarity}_per-{persistence}.tiff",
+                                mime="image/tiff",
+                            )
 
 
                 
