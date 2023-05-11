@@ -6,7 +6,7 @@
     "lacunarity": 1.5,
     "persistence": 0.7,
     "threads": 4,
-    "seed": "None",
+    "seed": null,
     "min_values": {"3": [0.6, 0.94], "4": [0.6, 0.94]},
     "max_values": {"3": [0.96, 0.99], "4": [0.96, 0.99]},
     "layers": {"3": 31, "4": 31},
