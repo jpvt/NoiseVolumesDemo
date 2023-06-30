@@ -1,0 +1,14 @@
+{
+    "template_mask_path": "phantom12_15_15.tif",
+    "num_volumes": 6,
+    "noise_type": "Simplex",
+    "octave_thresholds": {"3": [1, 12], "4": [1, 12]},
+    "lacunarity": 1.5,
+    "persistence": 0.7,
+    "threads": 4,
+    "seed": null,
+    "min_values": {"3": [0.6, 0.94], "4": [0.6, 0.94]},
+    "max_values": {"3": [0.96, 0.99], "4": [0.96, 0.99]},
+    "layers": {"3": 31, "4": 31},
+    "output_file": "perlin12_15_15.tif"
+}

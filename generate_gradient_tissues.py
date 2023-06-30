@@ -2,23 +2,15 @@ import pyfastnoisesimd as fns
 import numpy as np
 from helpers.noise_functions import generate_thresholded_tissues, rescale, pad_mask_to_match_shape
 import tifffile
+import json
 
-# Insert parameters here
-generator_parameters = {
-    "template_mask_path": None,
-    "num_volumes": None,
-    "noise_type": None,
-    "octave_thresholds": None,
-    "lacunarity": None,
-    "persistence": None,
-    "threads": None,
-    "seed": None,
-    "min_values": None,
-    "max_values": None,
-    "layers": None,
-    "output_file": None
-}
+def jsonKeys2int(x):
+    if isinstance(x, dict):
+        return {int(k) if k.isnumeric() else k: tuple(v) if isinstance(v, list) else v for k,v in x.items()}
+    return x
 
+with open("data.json", "r") as f:
+    generator_parameters = json.load(f, object_hook=jsonKeys2int)
 
 template_mask = tifffile.imread(generator_parameters["template_mask_path"])
 volume_size = int(max(template_mask.shape))
