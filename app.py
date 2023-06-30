@@ -6,6 +6,7 @@ from helpers.noise_functions import generate_tissues, pad_mask_to_match_shape, g
 import matplotlib.pyplot as plt
 import tifffile
 import io
+import plotly.graph_objects as go
 
 st.set_page_config(
      page_title='NBP-3D',
@@ -289,7 +290,7 @@ def advanced_page():
             with right_column:
                 st.subheader("Visualization")
                 viz_mode = st.selectbox(
-                "Select visualization", options=["Tissues", "Result"], index=0, help="Select between visualization modes"
+                "Select visualization", options=["Tissues", "Result", "Thresholding"], index=0, help="Select between visualization modes"
                 )
                 if viz_mode == "Tissues":
                     fig, ax = plt.subplots()
@@ -337,11 +338,20 @@ def advanced_page():
                         result_volume += np.uint8(label_mask[:template_mask.shape[0], :template_mask.shape[1], :template_mask.shape[2]])
                     
                     st.session_state.result_volume = result_volume
+                    axis = st.selectbox(
+                            'Which axis would you like to slice along?',
+                            ('X', 'Y', 'Z')
+                        )
 
                     z_project_result = st.checkbox("Z-Project")
                     if z_project_result:
                         fig, ax = plt.subplots()
-                        ax.imshow(np.sum(st.session_state.result_volume, axis=2), cmap="gray", aspect='equal')
+                        if axis == "X":
+                            ax.imshow(np.sum(st.session_state.result_volume, axis=0), cmap="gray", aspect='equal')
+                        elif axis == "Y":
+                            ax.imshow(np.sum(st.session_state.result_volume, axis=1), cmap="gray", aspect='equal')
+                        elif axis == "Z":
+                            ax.imshow(np.sum(st.session_state.result_volume, axis=2), cmap="gray", aspect='equal')
                         ax.set_title(f"Z-Project")
                         ax.axis("off")
                         #plt.tight_layout()
@@ -351,7 +361,82 @@ def advanced_page():
                         max_slices = st.session_state.result_volume.shape[2] - 1
                         slice_index = st.slider("Slice", min_value=0, max_value=max_slices, value=max_slices//2, step=1)
                         fig, ax = plt.subplots()
-                        ax.imshow(st.session_state.result_volume[:, :, slice_index], cmap="gray", aspect='equal')
+
+                        if axis == "X":
+                            ax.imshow(st.session_state.result_volume[slice_index, :, :], cmap="gray", aspect='equal')
+                        elif axis == "Y":
+                            ax.imshow(st.session_state.result_volume[:, slice_index, :], cmap="gray", aspect='equal')
+                        elif axis == "Z":
+                            ax.imshow(st.session_state.result_volume[:, :, slice_index], cmap="gray", aspect='equal')
+
+                        ax.set_title(f"Slice {slice_index + 1}")
+                        ax.axis("off")
+                        #plt.tight_layout()
+                        st.pyplot(fig)
+                        plt.close(fig)
+
+                        if st.session_state.result_volume is not None:
+                            tiff_buffer = io.BytesIO()
+                            tifffile.imwrite(tiff_buffer, st.session_state.result_volume)
+                            tiff_buffer.seek(0)
+                            st.download_button(
+                                label="Download Volume as TIFF",
+                                data=tiff_buffer,
+                                file_name=f"result_{noise_type}_nvols-{num_volumes}_lac-{lacunarity}_per-{persistence}.tiff",
+                                mime="image/tiff",
+                            )
+                
+                elif viz_mode == "Thresholding":
+                    result_volume = np.zeros_like(template_mask,dtype=np.uint8)
+
+                    threshold_values = st.slider(
+                    "Thresholds Values ", min_value=0, max_value=255, value=(80, 120), step=1, 
+                    help=f"Binary Mask threshold values. Default = (0, 255)", key="threshold_values"
+                    )
+
+                    for label in mask_labels:
+                        label_mask = pad_mask_to_match_shape(template_mask, st.session_state.noise_tissues[label].shape)
+                        label_mask = np.where(label_mask == label, 1, 0)
+                        label_mask *= st.session_state.noise_tissues[label]
+
+                        result_volume += np.uint8(label_mask[:template_mask.shape[0], :template_mask.shape[1], :template_mask.shape[2]])
+                    
+                    result_volume = np.where(result_volume >= threshold_values[0], result_volume, 0)
+                    result_volume = np.where(result_volume <= threshold_values[1], result_volume, 0)
+                    result_volume = np.where(result_volume > 0, 255, 0)
+                    
+                    st.session_state.result_volume = result_volume
+
+                    st.session_state.result_volume = result_volume
+                    axis = st.selectbox(
+                            'Which axis would you like to slice along?',
+                            ('X', 'Y', 'Z')
+                        )
+
+                    z_project_result = st.checkbox("Z-Project")
+                    if z_project_result:
+                        fig, ax = plt.subplots()
+                        if axis == "X":
+                            ax.imshow(st.session_state.result_volume[slice_index, :, :], cmap="gray", aspect='equal')
+                        elif axis == "Y":
+                            ax.imshow(st.session_state.result_volume[:, slice_index, :], cmap="gray", aspect='equal')
+                        elif axis == "Z":
+                            ax.imshow(st.session_state.result_volume[:, :, slice_index], cmap="gray", aspect='equal')
+                        ax.set_title(f"Z-Project")
+                        ax.axis("off")
+                        #plt.tight_layout()
+                        st.pyplot(fig)
+                        plt.close(fig)
+                    else:
+                        max_slices = st.session_state.result_volume.shape[2] - 1
+                        slice_index = st.slider("Slice", min_value=0, max_value=max_slices, value=max_slices//2, step=1)
+                        fig, ax = plt.subplots()
+                        if axis == "X":
+                            ax.imshow(st.session_state.result_volume[slice_index, :, :], cmap="gray", aspect='equal')
+                        elif axis == "Y":
+                            ax.imshow(st.session_state.result_volume[:, slice_index, :], cmap="gray", aspect='equal')
+                        elif axis == "Z":
+                            ax.imshow(st.session_state.result_volume[:, :, slice_index], cmap="gray", aspect='equal')
                         ax.set_title(f"Slice {slice_index + 1}")
                         ax.axis("off")
                         #plt.tight_layout()
