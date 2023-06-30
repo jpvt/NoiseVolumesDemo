@@ -6,7 +6,6 @@ from helpers.noise_functions import generate_tissues, pad_mask_to_match_shape, g
 import matplotlib.pyplot as plt
 import tifffile
 import io
-import plotly.graph_objects as go
 
 st.set_page_config(
      page_title='NBP-3D',
