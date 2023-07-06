@@ -416,11 +416,11 @@ def advanced_page():
                     if z_project_result:
                         fig, ax = plt.subplots()
                         if axis == "X":
-                            ax.imshow(st.session_state.result_volume[slice_index, :, :], cmap="gray", aspect='equal')
+                            ax.imshow(np.sum(st.session_state.result_volume, axis=0), cmap="gray", aspect='equal')
                         elif axis == "Y":
-                            ax.imshow(st.session_state.result_volume[:, slice_index, :], cmap="gray", aspect='equal')
+                            ax.imshow(np.sum(st.session_state.result_volume, axis=1), cmap="gray", aspect='equal')
                         elif axis == "Z":
-                            ax.imshow(st.session_state.result_volume[:, :, slice_index], cmap="gray", aspect='equal')
+                            ax.imshow(np.sum(st.session_state.result_volume, axis=2), cmap="gray", aspect='equal')
                         ax.set_title(f"Z-Project")
                         ax.axis("off")
                         #plt.tight_layout()
