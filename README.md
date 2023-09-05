@@ -37,4 +37,4 @@ streamlit run app.py
 
 MIT License (See [LICENSE](LICENSE) file).
 
-Maintained and developed by [João Pedro Vasconcelos](https://github.com/jpvt) and [Bruno Barufaldi](https://github.com/bbarufaldi).
+Maintained and developed by [João Pedro Vasconcelos](https://github.com/jpvt), [Bruno Barufaldi](https://github.com/bbarufaldi), and PennXPL (https://github.com/pennXPL).
