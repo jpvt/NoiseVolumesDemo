@@ -182,19 +182,14 @@ def advanced_page():
             "Noise Type", options=["Simplex", "Perlin"], index=0, help="Select between Simplex and Perlin noise. Default = Simplex"
             )
 
-            num_volumes = st.slider(
-                "Number of Volumes", min_value=1, max_value=20, value=6, step=1, help="The number of volumes combined to generate the result. Default = 6"
-            )
-
             lacunarity = st.slider(
                 "Lacunarity", min_value=0.01, max_value=5.0, value=1.5, step=0.01, help="The frequency factor between two octaves ('step' from one octave to the other). Default = 1.5"
-            )
-            persistence = st.slider(
-                "Persistence", min_value=0.1, max_value=1.0, value=0.7, step=0.01, help="The scaling factor between two octaves ('weight' of an octave). Default = 0.7"
             )
 
             mask_labels = np.unique(template_mask)
             max_octaves =  len(calculate_frequencies(volume_size, lacunarity))
+            num_volumes_per_label = {}
+            persistences = {}
             octaves_thresholds = {}
 
             gradient_matrix_thresholds = st.checkbox("Set Threshold Gradient Matrix")
@@ -206,9 +201,22 @@ def advanced_page():
             for label in mask_labels:
                 st.markdown(f"**Label {label}**")
 
+                num_volumes = st.slider(
+                    "Number of Volumes", min_value=1, max_value=20, value=6, step=1,
+                    help="The number of volumes combined to generate the result. Default = 6", key=f"nvols_{label}"
+                )
+                num_volumes_per_label[label] = num_volumes
+
+                persistence = st.slider(
+                    "Persistence", min_value=0.1, max_value=1.0, value=0.7, step=0.01,
+                    help="The scaling factor between two octaves ('weight' of an octave). Default = 0.7", key=f"per_{label}"
+                )
+                persistences[label] =  np.float32(persistence)
+
                 octaves_threshold = st.slider(
-                    "Octaves Thresholds", min_value=1, max_value=max_octaves, value=(1, max_octaves), step=1, help=f"Interval of octaves you want to compose your volume. Default = (0, {max_octaves})"
-                , key=label)
+                    "Octaves Thresholds", min_value=1, max_value=max_octaves, value=(1, max_octaves), step=1,
+                    help=f"Interval of octaves you want to compose your volume. Default = (0, {max_octaves})", key=label
+                )
                 octaves_thresholds[label] = octaves_threshold
 
                 if gradient_matrix_thresholds:
@@ -250,17 +258,15 @@ def advanced_page():
                 seed = None
 
             if st.button("Generate Noise for Labels"):
-                # ... (Generate noise for each label using the mapped parameters) ...
-                # noise_volumes = generate_noise_for_labels(...)
 
                 if gradient_matrix_thresholds:
                     noise_tissues = generate_thresholded_tissues(
-                        n_volumes=num_volumes,
+                        n_volumes=num_volumes_per_label,
                         noise_type=fns.NoiseType.Simplex if noise_type == "Simplex" else fns.NoiseType.Perlin,
                         shape=[volume_size, volume_size, volume_size],
                         octave_thresholds=octaves_thresholds,
                         lacunarity=lacunarity,
-                        persistence=persistence,
+                        persistence=persistences,
                         threads=threads,
                         seed=seed,
                         min_values= min_values_thresholds,
@@ -269,17 +275,18 @@ def advanced_page():
                     )
                 else:
                     noise_tissues = generate_tissues(
-                        n_volumes=num_volumes,
+                        n_volumes=num_volumes_per_label,
                         noise_type=fns.NoiseType.Simplex if noise_type == "Simplex" else fns.NoiseType.Perlin,
                         shape=[volume_size, volume_size, volume_size],
                         octave_thresholds=octaves_thresholds,
                         lacunarity=lacunarity,
-                        persistence=persistence,
+                        persistence=persistences,
                         threads=threads,
                         seed=seed,
                     )
 
                 for label in mask_labels:
+                    print(label, type(noise_tissues[label]))
                     noise_tissues[label] = np.uint8(rescale(noise_tissues[label] , 0, 255))
 
                 st.session_state.noise_tissues = noise_tissues
