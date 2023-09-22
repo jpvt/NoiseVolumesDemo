@@ -218,10 +218,10 @@ def generate_volume(
     return volume
 
 def generate_tissues(
-        n_volumes: int = 7, 
+        n_volumes: dict = {0: 7}, 
         shape: list = [100,100,100], 
         lacunarity: float = 1.5, 
-        persistence: float = 0.7,
+        persistence: dict = {0: 0.7},
         octave_thresholds: dict = {0: (0,7)},  
         noise_type: int = fns.NoiseType.Simplex,
         threads: int = 8,
@@ -243,12 +243,10 @@ def generate_tissues(
     Returns:
     - tissues (ndarray): A 3D noise volume as a NumPy array.
     """
-    if np.size(persistence) == 1:
-        persistence = {label: persistence for label in octave_thresholds.keys()}
         
     frequencies =  calculate_frequencies(shape, lacunarity)
     tissues = {label: np.zeros(shape, dtype=np.single) for label in octave_thresholds.keys()}
-    for _ in range(n_volumes):
+    for ii in range(max(n_volumes.values())):
         volumes = {label: np.zeros(shape, dtype=np.single) for label in octave_thresholds.keys()}
         counts = {label: len(frequencies) for label in octave_thresholds.keys()}
         
@@ -263,13 +261,14 @@ def generate_tissues(
             )
 
             for label, octave_threshold in octave_thresholds.items():
-
-                if octave_threshold[0] <= jj <= octave_threshold[1]:
-                    volumes[label] += (persistence[label] ** counts[label]) * noise
-                    counts[label] -= 1
+                if ii < n_volumes[label]:
+                    if octave_threshold[0] <= jj <= octave_threshold[1]:
+                        volumes[label] += (persistence[label] ** counts[label]) * noise
+                        counts[label] -= 1
         
         for label in octave_thresholds.keys():
-            tissues[label] += perturb(volumes[label])
+            if ii < n_volumes[label]: 
+                tissues[label] += perturb(volumes[label])
 
     return tissues
 
