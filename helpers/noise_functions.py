@@ -84,7 +84,7 @@ def generate_noise(
     noisegen.perturb.perturbType = fns.PerturbType.NoPerturb
     return np.single(noisegen.genAsGrid(shape))
 
-def combine_base(base, thresholds, shape):
+def combine_base_sum(base, thresholds, shape):
     layers, volume_thresholds = thresholds.shape
     finished = np.zeros(shape, dtype=np.uint8)
 
@@ -96,6 +96,33 @@ def combine_base(base, thresholds, shape):
         finished += combined
 
     return finished
+
+def combine_base_lund(base, thresholds, shape):
+    layers, volume_thresholds = thresholds.shape
+    finished = np.zeros(shape, dtype=np.bool_)
+
+    for layer in range(layers):
+        combined = np.zeros(shape, dtype=np.bool_)
+        for volume_threshold in range(volume_thresholds):
+            combined = np.logical_or(combined, np.where(base[volume_threshold] > thresholds[layer, volume_threshold], 1, 0).astype(np.bool_))
+
+        finished = np.logical_or(finished,combined)
+
+    return finished.astype(np.ushort)
+
+def combine_base(base, thresholds, shape):
+    layers, volume_thresholds = thresholds.shape
+    finished = np.zeros(shape, dtype=np.bool_)
+
+    for layer in range(layers)[::-1]:
+        combined = np.zeros(shape, dtype=np.bool_)
+        for volume_threshold in range(volume_thresholds):
+            combined = np.logical_or(combined, np.where(base[volume_threshold] > thresholds[layer, volume_threshold], 1, 0).astype(np.bool_))
+
+        finished = np.logical_or(finished,combined)
+        break
+
+    return finished.astype(np.ushort)
 
 def generate_thresholded_volume(
         volumes: int = 7, 
