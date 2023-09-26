@@ -27,15 +27,15 @@ def generate_threshold_matrix(layers, volumes, min_values, max_values):
 
     return threshold_matrix
 
-def perturb(volume: np.ndarray) -> np.single:
+def perturb(volume: np.ndarray) -> np.half:
     """
     Function to perturb distribution of a volume
     Args:
         volume: Volume to be perturbed
     Returns: 
-        Pertubed volume as np.single
+        Pertubed volume as np.half
     """
-    return np.single((1-np.abs(volume))**10)
+    return np.half((1-np.abs(volume))**10)
 
 def calculate_frequencies(shape: list, lacunarity: float) -> dict:
     """
@@ -63,7 +63,7 @@ def generate_noise(
         shape: list = [500, 500, 500], 
         threads: int = 8, 
         seed=None
-) -> np.single:
+) -> np.half:
     """
     Function that generates noise distributions using the pyfastnoisesimd library.
     Args:
@@ -73,7 +73,7 @@ def generate_noise(
         threads: int with the number of the threads that will be used to generate the noise
         seed: int value to represent randomness
     Returns:
-        Noise volume as np.single
+        Noise volume as np.half
 
     """
     if seed is None:
@@ -82,7 +82,7 @@ def generate_noise(
     noisegen.noiseType = noise_type
     noisegen.frequency = 1/frequency
     noisegen.perturb.perturbType = fns.PerturbType.NoPerturb
-    return np.single(noisegen.genAsGrid(shape))
+    return np.half(noisegen.genAsGrid(shape))
 
 def combine_base_sum(base, thresholds, shape):
     layers, volume_thresholds = thresholds.shape
@@ -157,11 +157,11 @@ def generate_thresholded_volume(
         persistence = np.array([persistence, persistence])
     
     frequencies =  calculate_frequencies(shape, lacunarity)
-    #volume = np.zeros(shape, dtype=np.single)
+    #volume = np.zeros(shape, dtype=np.half)
     generated_volumes = []
     
     for _ in range(volumes):
-        vol = np.zeros(shape, dtype=np.single)
+        vol = np.zeros(shape, dtype=np.half)
         count = len(frequencies)
         
         for jj in range(1,len(frequencies)+1):
@@ -220,10 +220,10 @@ def generate_volume(
         persistence = np.array([persistence, persistence])
     
     frequencies =  calculate_frequencies(shape, lacunarity)
-    volume = np.zeros(shape, dtype=np.single)
+    volume = np.zeros(shape, dtype=np.half)
     
     for _ in range(volumes):
-        vol = np.zeros(shape, dtype=np.single)
+        vol = np.zeros(shape, dtype=np.half)
         count = len(frequencies)
         
         for jj in range(1,len(frequencies)+1):
@@ -272,9 +272,9 @@ def generate_tissues(
     """
         
     frequencies =  calculate_frequencies(shape, lacunarity)
-    tissues = {label: np.zeros(shape, dtype=np.single) for label in octave_thresholds.keys()}
+    tissues = {label: np.zeros(shape, dtype=np.half) for label in octave_thresholds.keys()}
     for ii in range(max(n_volumes.values())):
-        volumes = {label: np.zeros(shape, dtype=np.single) for label in octave_thresholds.keys()}
+        volumes = {label: np.zeros(shape, dtype=np.half) for label in octave_thresholds.keys()}
         counts = {label: len(frequencies) for label in octave_thresholds.keys()}
         
         for jj in range(1,len(frequencies)+1):
@@ -332,7 +332,7 @@ def generate_thresholded_tissues(
     frequencies =  calculate_frequencies(shape, lacunarity)
     tissues = {label: [] for label in octave_thresholds.keys()}
     for ii in range(max(n_volumes.values())):
-        volumes = {label: np.zeros(shape, dtype=np.single) for label in octave_thresholds.keys()}
+        volumes = {label: np.zeros(shape, dtype=np.half) for label in octave_thresholds.keys()}
         counts = {label: len(frequencies) for label in octave_thresholds.keys()}
         
         for jj in range(1,len(frequencies)+1):
