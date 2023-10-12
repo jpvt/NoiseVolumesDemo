@@ -287,7 +287,8 @@ def advanced_page():
 
                 for label in mask_labels:
                     print(label, type(noise_tissues[label]))
-                    noise_tissues[label] = np.uint8(rescale(noise_tissues[label] , 0, 255))
+                    print(noise_tissues[label].shape)
+                    noise_tissues[label] = np.uint8(rescale(noise_tissues[label].astype(np.ushort) , 0, 255))
 
                 st.session_state.noise_tissues = noise_tissues
     

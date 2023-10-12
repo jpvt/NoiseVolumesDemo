@@ -1,5 +1,7 @@
 import pyfastnoisesimd as fns
 import numpy as np
+import time
+from tqdm import tqdm
 
 def rescale(array, new_min, new_max) -> np.ndarray:
     return ((array-array.min()) * ((new_max-new_min)/(array.max()-array.min()))) + new_min
@@ -157,7 +159,6 @@ def generate_thresholded_volume(
         persistence = np.array([persistence, persistence])
     
     frequencies =  calculate_frequencies(shape, lacunarity)
-    #volume = np.zeros(shape, dtype=np.half)
     generated_volumes = []
     
     for _ in range(volumes):
@@ -299,7 +300,7 @@ def generate_tissues(
 
     return tissues
 
-def generate_thresholded_tissues(
+def generate_thresholded_tissues_legacy(
         n_volumes: dict = {0: 7},
         shape: list = [100,100,100], 
         lacunarity: float = 1.5, 
@@ -364,4 +365,59 @@ def generate_thresholded_tissues(
         )
         tissues[label] = np.asarray(combine_base(tissues[label], threshold_matrix, shape))
 
+    return tissues
+
+def generate_thresholded_tissues(
+        n_volumes: dict = {0: 7},
+        shape: list = [100,100,100], 
+        lacunarity: float = 1.5, 
+        persistence: dict = {0: 0.7},
+        octave_thresholds: dict = {0: (0,7)},  
+        noise_type: int = fns.NoiseType.Simplex,
+        threads: int = 8,
+        seed: int = None,
+        min_values: dict = {0: (0.94, 0.6)},
+        max_values: dict = {0: (0.99, 0.98)},
+        layers: dict = {0: 63},
+        verbose: bool = False
+) -> dict:
+    start_time = time.time()
+    
+    frequencies = calculate_frequencies(shape, lacunarity)
+    tissues = {label: np.zeros(shape, dtype=np.bool_) for label in octave_thresholds.keys()}
+    tissues_threshold = {label: np.linspace(min_values[label][0], max_values[label][0], n_volumes[label]) for label in octave_thresholds.keys()}
+
+    if verbose:
+        print(f"Initialization took {time.time() - start_time:.2f} seconds.")
+    
+    loop_range = tqdm(range(max(n_volumes.values())), desc="Processing")
+    for ii in loop_range:
+        volumes = {label: np.zeros(shape, dtype=np.half) for label in octave_thresholds.keys()}
+        counts = {label: len(frequencies) for label in octave_thresholds.keys()}
+        
+        loop_start_time = time.time()
+        for jj, freq in enumerate(frequencies, start=1):
+            for label, octave_threshold in octave_thresholds.items():
+                if ii < n_volumes[label] and octave_threshold[0] <= jj <= octave_threshold[1]:
+                    volumes[label] += (persistence[label] ** counts[label]) * generate_noise(
+                        frequency=freq,
+                        noise_type=noise_type,
+                        shape=shape,
+                        threads=threads,
+                        seed=seed
+                    )
+                    counts[label] -= 1
+        if verbose:
+            print(f"Noise Loop iteration {ii} took {time.time() - loop_start_time:.2f} seconds.")
+        
+        loop2_start_time = time.time()
+        for label in octave_thresholds.keys():
+            if ii < n_volumes[label]:
+                tissues[label] = np.logical_or(tissues[label], perturb(volumes[label]) > tissues_threshold[label][ii])
+        
+        if verbose:
+            print(f"Threshold loop in iteration {ii} took {time.time() - loop2_start_time:.2f} seconds.")
+
+    if verbose:
+        print(f"Total execution time: {time.time() - start_time:.2f} seconds.")
     return tissues
