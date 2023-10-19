@@ -337,7 +337,7 @@ def generate_thresholded_tissues_legacy(
         counts = {label: len(frequencies) for label in octave_thresholds.keys()}
         
         for jj in range(1,len(frequencies)+1):
-
+            seed = seed+jj+ii if seed is not None else None
             noise = generate_noise(
                 frequency=frequencies[jj],
                 noise_type=noise_type,
@@ -396,15 +396,16 @@ def generate_thresholded_tissues(
         counts = {label: len(frequencies) for label in octave_thresholds.keys()}
         
         loop_start_time = time.time()
-        for jj, freq in enumerate(frequencies, start=1):
+        for jj in range(1,len(frequencies)+1):
             for label, octave_threshold in octave_thresholds.items():
                 if ii < n_volumes[label] and octave_threshold[0] <= jj <= octave_threshold[1]:
+                    seed = seed+jj+ii if seed is not None else None
                     volumes[label] += (persistence[label] ** counts[label]) * generate_noise(
-                        frequency=freq,
+                        frequency=frequencies[jj],
                         noise_type=noise_type,
                         shape=shape,
                         threads=threads,
-                        seed=seed
+                        seed=seed+jj+ii
                     )
                     counts[label] -= 1
         if verbose:

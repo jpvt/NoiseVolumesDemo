@@ -2,7 +2,7 @@ import streamlit as st
 import pyfastnoisesimd as fns
 import numpy as np
 from helpers.noise_functions import generate_volume, rescale, calculate_frequencies
-from helpers.noise_functions import generate_tissues, pad_mask_to_match_shape, generate_thresholded_volume, generate_thresholded_tissues
+from helpers.noise_functions import generate_tissues, pad_mask_to_match_shape, generate_thresholded_volume, generate_thresholded_tissues, generate_thresholded_tissues_legacy
 import matplotlib.pyplot as plt
 import tifffile
 import io
