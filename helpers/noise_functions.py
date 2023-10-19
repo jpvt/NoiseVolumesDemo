@@ -405,7 +405,7 @@ def generate_thresholded_tissues(
                         noise_type=noise_type,
                         shape=shape,
                         threads=threads,
-                        seed=seed+jj+ii
+                        seed=seed
                     )
                     counts[label] -= 1
         if verbose:
