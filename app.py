@@ -394,73 +394,121 @@ def advanced_page():
                             )
                 
                 elif viz_mode == "Thresholding":
+                    fig, ax = plt.subplots()
                     result_volume = np.zeros_like(template_mask,dtype=np.uint8)
-
-                    threshold_values = st.slider(
-                    "Thresholds Values ", min_value=0, max_value=255, value=(80, 120), step=1, 
-                    help=f"Binary Mask threshold values. Default = (0, 255)", key="threshold_values"
-                    )
-
+                    
+                    hist_thresholds = {}
                     for label in mask_labels:
-                        label_mask = pad_mask_to_match_shape(template_mask, st.session_state.noise_tissues[label].shape)
-                        label_mask = np.where(label_mask == label, 1, 0)
-                        label_mask *= st.session_state.noise_tissues[label]
+                        st.markdown(f"*Label {label}*")
 
-                        result_volume += np.uint8(label_mask[:template_mask.shape[0], :template_mask.shape[1], :template_mask.shape[2]])
-                    
-                    result_volume = np.where(result_volume >= threshold_values[0], result_volume, 0)
-                    result_volume = np.where(result_volume <= threshold_values[1], result_volume, 0)
-                    result_volume = np.where(result_volume > 0, 255, 0)
-                    
-                    st.session_state.result_volume = result_volume
+                        hist_threshold = st.slider(
+                        "Thresholds Values ", min_value=0, max_value=255, value=(80, 120), step=1, 
+                        help=f"Binary Mask threshold values. Default = (0, 255)", key=f"{label}_hist_threshold"
+                        )
+                        hist_thresholds[label] = hist_threshold
 
-                    st.session_state.result_volume = result_volume
-                    axis = st.selectbox(
+                    
+                    label_index = st.slider("Label", min_value=0, max_value=len(mask_labels)-1, value=0, step=1)
+                    selected_label = mask_labels[label_index]
+                    
+                    r_col1, r_col2, r_col3 = right_column.columns(3)
+                    if r_col1.button("Apply Threshold"):
+                        st.session_state.noise_tissues_thr = st.session_state.noise_tissues.copy()
+                        for label in st.session_state.noise_tissues_thr.keys():
+                            st.session_state.noise_tissues_thr[label] = np.uint8(rescale(st.session_state.noise_tissues_thr[label] , 0, 255))
+                            thr0 = hist_thresholds[label]
+                            st.session_state.noise_tissues_thr[label] = np.where(st.session_state.noise_tissues_thr[label] <= thr0[0], 1,  st.session_state.noise_tissues_thr[label])
+                            st.session_state.noise_tissues_thr[label] = np.where(st.session_state.noise_tissues_thr[label] >= thr0[1], 1,  st.session_state.noise_tissues_thr[label])
+                            st.session_state.noise_tissues_thr[label] = np.where(st.session_state.noise_tissues_thr[label] > 1, 2,  st.session_state.noise_tissues_thr[label])
+
+                    central_index = (st.session_state.noise_tissues_thr[selected_label].shape[2]-1)//2
+                    image_to_show_thr = st.session_state.noise_tissues_thr[selected_label][:, central_index, :]
+
+                    if r_col2.checkbox("Tissues Z-Project"):
+                        ax.set_title(f"Z-Project of label {selected_label}")
+                        image_to_show_thr = np.sum(st.session_state.noise_tissues_thr[selected_label], axis=2)
+
+                        ax.set_title(f"Z-Project of label {selected_label}")
+                        ax.imshow(image_to_show_thr, cmap="gray", aspect='equal')
+                        ax.axis("off")
+                        st.pyplot(fig)
+                        plt.close(fig)
+                        
+
+                    else:
+                        if r_col3.checkbox("See mask thresholded"): 
+
+                            for label in mask_labels:
+                                label_mask = pad_mask_to_match_shape(template_mask, st.session_state.noise_tissues_thr[label].shape)
+                                label_mask = np.where(label_mask == label, 1, 0)
+                                label_mask *= st.session_state.noise_tissues_thr[label]
+
+                                result_volume += np.uint8(label_mask[:template_mask.shape[0], :template_mask.shape[1], :template_mask.shape[2]])
+                            
+                            st.session_state.result_volume_thr = result_volume
+
+                            axis = st.selectbox(
                             'Which axis would you like to slice along?',
                             ('X', 'Y', 'Z')
                         )
 
-                    z_project_result = st.checkbox("Z-Project")
-                    if z_project_result:
-                        fig, ax = plt.subplots()
-                        if axis == "X":
-                            ax.imshow(np.sum(st.session_state.result_volume, axis=0), cmap="gray", aspect='equal')
-                        elif axis == "Y":
-                            ax.imshow(np.sum(st.session_state.result_volume, axis=1), cmap="gray", aspect='equal')
-                        elif axis == "Z":
-                            ax.imshow(np.sum(st.session_state.result_volume, axis=2), cmap="gray", aspect='equal')
-                        ax.set_title(f"Z-Project")
-                        ax.axis("off")
-                        #plt.tight_layout()
-                        st.pyplot(fig)
-                        plt.close(fig)
-                    else:
-                        max_slices = st.session_state.result_volume.shape[2] - 1
-                        slice_index = st.slider("Slice", min_value=0, max_value=max_slices, value=max_slices//2, step=1)
-                        fig, ax = plt.subplots()
-                        if axis == "X":
-                            ax.imshow(st.session_state.result_volume[slice_index, :, :], cmap="gray", aspect='equal')
-                        elif axis == "Y":
-                            ax.imshow(st.session_state.result_volume[:, slice_index, :], cmap="gray", aspect='equal')
-                        elif axis == "Z":
-                            ax.imshow(st.session_state.result_volume[:, :, slice_index], cmap="gray", aspect='equal')
-                        ax.set_title(f"Slice {slice_index + 1}")
-                        ax.axis("off")
-                        #plt.tight_layout()
-                        st.pyplot(fig)
-                        plt.close(fig)
+                            if st.checkbox("Mask Z-Project"):
+                    
+                                fig, ax = plt.subplots()
+                                if axis == "X":
+                                    ax.imshow(np.sum(st.session_state.result_volume_thr, axis=0), cmap="gray", aspect='equal')
+                                elif axis == "Y":
+                                    ax.imshow(np.sum(st.session_state.result_volume_thr, axis=1), cmap="gray", aspect='equal')
+                                elif axis == "Z":
+                                    ax.imshow(np.sum(st.session_state.result_volume_thr, axis=2), cmap="gray", aspect='equal')
+                                ax.set_title(f"Mask Z-Project")
+                                ax.axis("off")
+                                #plt.tight_layout()
+                                st.pyplot(fig)
+                                plt.close(fig)
+                                
+                            else:
+                                max_slices = st.session_state.result_volume_thr.shape[2] - 1
+                                slice_index = st.slider("Slice", min_value=0, max_value=max_slices, value=max_slices//2, step=1)
+                                fig, ax = plt.subplots()
 
-                        if st.session_state.result_volume is not None:
-                            tiff_buffer = io.BytesIO()
-                            tifffile.imwrite(tiff_buffer, st.session_state.result_volume)
-                            tiff_buffer.seek(0)
-                            st.download_button(
-                                label="Download Volume as TIFF",
-                                data=tiff_buffer,
-                                file_name=f"result_{noise_type}_nvols-{num_volumes}_lac-{lacunarity}_per-{persistence}.tiff",
-                                mime="image/tiff",
-                            )
+                                if axis == "X":
+                                    ax.imshow(st.session_state.result_volume_thr[slice_index, :, :], cmap="gray", aspect='equal')
+                                elif axis == "Y":
+                                    ax.imshow(st.session_state.result_volume_thr[:, slice_index, :], cmap="gray", aspect='equal')
+                                elif axis == "Z":
+                                    ax.imshow(st.session_state.result_volume_thr[:, :, slice_index], cmap="gray", aspect='equal')
 
+                                ax.axis("off")
+                                #plt.tight_layout()
+                                st.pyplot(fig)
+                                plt.close(fig)
+
+                            
+                        else:
+                            
+                            ax.set_title(f"Label {selected_label}")
+                            ax.imshow(image_to_show_thr, cmap="gray", aspect='equal')
+                            ax.axis("off")
+                            st.pyplot(fig)
+                            plt.close(fig)
+                                
+                    
+
+                    
+
+                    if st.session_state.noise_tissues_thr is not None:
+                        tiff_buffer = io.BytesIO()
+                        tifffile.imwrite(tiff_buffer, st.session_state.noise_tissues_thr[selected_label])
+                        tiff_buffer.seek(0)
+                        st.download_button(
+                            label="Download Volume as TIFF",
+                            data=tiff_buffer,
+                            file_name=f"tissue_{selected_label}_{noise_type}_nvols-{num_volumes}_lac-{lacunarity}_per-{persistence}.tiff",
+                            mime="image/tiff",
+                        )
+
+                   
 
                 
 
